@@ -1,6 +1,7 @@
 package zapfilter
 
 import (
+	"fmt"
 	"path"
 	"strings"
 	"sync"
@@ -19,6 +20,9 @@ type filteringCore struct {
 // NewFilteringCore returns a core middleware that uses the given filter function
 // to decide whether to actually call Write on the next core in the chain.
 func NewFilteringCore(next zapcore.Core, filter FilterFunc) zapcore.Core {
+	if filter == nil {
+		filter = alwaysFalseFilter
+	}
 	return &filteringCore{next, filter}
 }
 
@@ -49,10 +53,11 @@ func ByNamespaces(namespaces string) FilterFunc {
 
 		if _, found := matchMap[entry.LoggerName]; !found {
 			matchMap[entry.LoggerName] = false
+		patternLookup:
 			for _, pattern := range patterns {
 				if matched, _ := path.Match(pattern, entry.LoggerName); matched {
 					matchMap[entry.LoggerName] = true
-					break
+					break patternLookup
 				}
 			}
 		}
@@ -103,4 +108,80 @@ func All(filters ...FilterFunc) FilterFunc {
 		}
 		return true
 	}
+}
+
+// ParseRules takes a CLI-friendly set of rules to construct a filter.
+func ParseRules(input string) (FilterFunc, error) {
+	topFilter := alwaysFalseFilter
+
+	// rules are separated by spaces, tabs or \n
+	for _, rule := range strings.Fields(input) {
+		// split rule into parts (separated by ':')
+		rule = strings.TrimSpace(rule)
+		if rule == "" {
+			continue
+		}
+		parts := strings.SplitN(rule, ":", 2)
+		var left, right string
+		switch len(parts) {
+		case 1:
+			// if no separator, left stays empty
+			right = parts[0]
+		case 2:
+			left = parts[0]
+			right = parts[1]
+		default:
+			return nil, fmt.Errorf("bad syntax")
+		}
+
+		// parse left part
+		var (
+			enabledLevels = make(map[zapcore.Level]bool)
+		)
+		for _, leftPart := range strings.Split(left, ",") {
+			switch leftPart {
+			case "", "*":
+				enabledLevels[zapcore.DebugLevel] = true
+				enabledLevels[zapcore.InfoLevel] = true
+				enabledLevels[zapcore.WarnLevel] = true
+				enabledLevels[zapcore.ErrorLevel] = true
+			case "debug":
+				enabledLevels[zapcore.DebugLevel] = true
+			case "info":
+				enabledLevels[zapcore.InfoLevel] = true
+			case "warn":
+				enabledLevels[zapcore.WarnLevel] = true
+			case "error":
+				enabledLevels[zapcore.ErrorLevel] = true
+			default:
+				return nil, fmt.Errorf("unsupported keyword: %q", left)
+			}
+		}
+
+		// create rule's filter
+		switch len(enabledLevels) {
+		case 4:
+			topFilter = Any(topFilter, ByNamespaces(right))
+		default:
+			levelFilter := alwaysFalseFilter
+			for level := range enabledLevels {
+				levelFilter = Any(levelFilter, ExactLevel(level))
+			}
+			topFilter = Any(topFilter, All(levelFilter, ByNamespaces(right)))
+		}
+	}
+
+	return topFilter, nil
+}
+
+func MustParseRules(input string) FilterFunc {
+	filter, err := ParseRules(input)
+	if err != nil {
+		panic(err)
+	}
+	return filter
+}
+
+func alwaysFalseFilter(_ zapcore.Entry, _ []zapcore.Field) bool {
+	return false
 }

@@ -21,17 +21,45 @@
 ```go
 import "moul.io/zapfilter"
 
-c := zap.NewExample().Core()
+func ExampleParseRules() {
+	core := zap.NewExample().Core()
+	// *=myns             => any level, myns namespace
+    // info,warn:myns.*   => info or warn level, any namespace matching myns.*
+	// error=*            => everything with error level
+	logger := zap.New(zapfilter.NewFilteringCore(core, zapfilter.MustParseRules("*:myns info,warn:myns.* error:*")))
+	defer logger.Sync()
 
-logger := zap.New(zapfilter.NewFilteringCore(c, zapfilter.ByNamespaces("demo")))
-defer logger.Sync()
+	logger.Debug("top debug")                                 // no match
+	logger.Named("myns").Debug("myns debug")                  // matches *:myns
+	logger.Named("bar").Debug("bar debug")                    // no match
+	logger.Named("myns").Named("foo").Debug("myns.foo debug") // no match
 
-logger.Debug("hello world!")
-logger.Named("demo").Debug("hello earth!")
-logger.Named("other").Debug("hello universe!")
+	logger.Info("top info")                                 // no match
+	logger.Named("myns").Info("myns info")                  // matches *:myns
+	logger.Named("bar").Info("bar info")                    // no match
+	logger.Named("myns").Named("foo").Info("myns.foo info") // matches info,warn:myns.*
 
-// Output:
-// {"level":"debug","logger":"demo","msg":"hello earth!"}
+	logger.Warn("top warn")                                 // no match
+	logger.Named("myns").Warn("myns warn")                  // matches *:myns
+	logger.Named("bar").Warn("bar warn")                    // no match
+	logger.Named("myns").Named("foo").Warn("myns.foo warn") // matches info,warn:myns.*
+
+	logger.Error("top error")                                 // matches error:*
+	logger.Named("myns").Error("myns error")                  // matches *:myns and error:*
+	logger.Named("bar").Error("bar error")                    // matches error:*
+	logger.Named("myns").Named("foo").Error("myns.foo error") // matches error:*
+
+	// Output:
+	// {"level":"debug","logger":"myns","msg":"myns debug"}
+	// {"level":"info","logger":"myns","msg":"myns info"}
+	// {"level":"info","logger":"myns.foo","msg":"myns.foo info"}
+	// {"level":"warn","logger":"myns","msg":"myns warn"}
+	// {"level":"warn","logger":"myns.foo","msg":"myns.foo warn"}
+	// {"level":"error","msg":"top error"}
+	// {"level":"error","logger":"myns","msg":"myns error"}
+	// {"level":"error","logger":"bar","msg":"bar error"}
+	// {"level":"error","logger":"myns.foo","msg":"myns.foo error"}
+}
 ```
 
 More examples on https://pkg.go.dev/moul.io/zapfilter
