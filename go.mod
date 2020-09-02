@@ -1,9 +1,8 @@
-module moul.io/golang-repo-template
+module moul.io/zapfilter
 
 go 1.13
 
 require (
-	go.uber.org/goleak v1.1.10
-	moul.io/motd v1.0.0
-	moul.io/srand v1.4.0
+	github.com/stretchr/testify v1.4.0
+	go.uber.org/zap v1.16.0
 )
