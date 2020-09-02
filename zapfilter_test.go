@@ -1,7 +1,9 @@
 package zapfilter_test
 
 import (
+	"fmt"
 	"math/rand"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -82,6 +84,46 @@ func ExampleByNamespaces() {
 	// Output:
 	// {"level":"debug","logger":"demo1.frontend","msg":"hello region!"}
 	// {"level":"debug","logger":"demo3.frontend","msg":"hello solar system!"}
+}
+
+func ExampleParseRules() {
+	core := zap.NewExample().Core()
+	// *=myns             => any level, myns namespace
+	// info,warn:myns.*   => info or warn level, any namespace matching myns.*
+	// error=*            => everything with error level
+	logger := zap.New(zapfilter.NewFilteringCore(core, zapfilter.MustParseRules("*:myns info,warn:myns.* error:*")))
+	defer logger.Sync()
+
+	logger.Debug("top debug")                                 // no match
+	logger.Named("myns").Debug("myns debug")                  // matches *:myns
+	logger.Named("bar").Debug("bar debug")                    // no match
+	logger.Named("myns").Named("foo").Debug("myns.foo debug") // no match
+
+	logger.Info("top info")                                 // no match
+	logger.Named("myns").Info("myns info")                  // matches *:myns
+	logger.Named("bar").Info("bar info")                    // no match
+	logger.Named("myns").Named("foo").Info("myns.foo info") // matches info,warn:myns.*
+
+	logger.Warn("top warn")                                 // no match
+	logger.Named("myns").Warn("myns warn")                  // matches *:myns
+	logger.Named("bar").Warn("bar warn")                    // no match
+	logger.Named("myns").Named("foo").Warn("myns.foo warn") // matches info,warn:myns.*
+
+	logger.Error("top error")                                 // matches error:*
+	logger.Named("myns").Error("myns error")                  // matches *:myns and error:*
+	logger.Named("bar").Error("bar error")                    // matches error:*
+	logger.Named("myns").Named("foo").Error("myns.foo error") // matches error:*
+
+	// Output:
+	// {"level":"debug","logger":"myns","msg":"myns debug"}
+	// {"level":"info","logger":"myns","msg":"myns info"}
+	// {"level":"info","logger":"myns.foo","msg":"myns.foo info"}
+	// {"level":"warn","logger":"myns","msg":"myns warn"}
+	// {"level":"warn","logger":"myns.foo","msg":"myns.foo warn"}
+	// {"level":"error","msg":"top error"}
+	// {"level":"error","logger":"myns","msg":"myns error"}
+	// {"level":"error","logger":"bar","msg":"bar error"}
+	// {"level":"error","logger":"myns.foo","msg":"myns.foo error"}
 }
 
 func TestFilterFunc(t *testing.T) {
@@ -191,6 +233,103 @@ func TestFilterFunc(t *testing.T) {
 			}
 
 			require.Equal(t, gotLogs, tc.expectedLogs)
+		})
+	}
+}
+
+func TestParseRules(t *testing.T) {
+	const (
+		allDebug   = "aeimquy2"
+		allInfo    = "bfjnrvz3"
+		allWarn    = "cgkosw04"
+		allError   = "dhlptx15"
+		everything = "abcdefghijklmnopqrstuvwxyz012345"
+	)
+
+	cases := []struct {
+		name          string
+		input         string
+		expectedLogs  string
+		expectedError error
+	}{
+		{"empty", "", "", nil},
+		{"everything", "*", everything, nil},
+		{"all-debug", "debug:*", allDebug, nil},
+		{"all-info", "info:*", allInfo, nil},
+		{"all-warn", "warn:*", allWarn, nil},
+		{"all-error", "error:*", allError, nil},
+		{"all-info-and-warn-1", "info,warn:*", "bcfgjknorsvwz034", nil},
+		{"all-info-and-warn-2", "info:* warn:*", "bcfgjknorsvwz034", nil},
+		{"redundant-1", "info,info:* info:*", allInfo, nil},
+		{"redundant-2", "* *:* info:*", everything, nil},
+		{"foo-ns", "foo", "efgh", nil},
+		{"foo-ns-wildcard", "*:foo", "efgh", nil},
+		{"foo-ns-debug,info", "debug,info:foo", "ef", nil},
+		{"foo.star-ns", "foo.*", "qrstuvwx", nil},
+		{"foo.star-ns-wildcard", "*:foo.*", "qrstuvwx", nil},
+		{"foo.star-ns-debug,info", "debug,info:foo.*", "qruv", nil},
+		{"all-in-one", "*:foo debug:foo.* info,warn:bar error:*", "defghjklpqtux15", nil},
+		{"invalid-left", "invalid:*", "", fmt.Errorf(`unsupported keyword: "invalid"`)},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			next, logs := observer.New(zapcore.DebugLevel)
+			filter, err := zapfilter.ParseRules(tc.input)
+			require.Equal(t, tc.expectedError, err)
+			if err != nil {
+				return
+			}
+
+			core := zapfilter.NewFilteringCore(next, filter)
+			logger := zap.New(core)
+
+			logger.Debug("a")
+			logger.Info("b")
+			logger.Warn("c")
+			logger.Error("d")
+
+			logger.Named("foo").Debug("e")
+			logger.Named("foo").Info("f")
+			logger.Named("foo").Warn("g")
+			logger.Named("foo").Error("h")
+
+			logger.Named("bar").Debug("i")
+			logger.Named("bar").Info("j")
+			logger.Named("bar").Warn("k")
+			logger.Named("bar").Error("l")
+
+			logger.Named("baz").Debug("m")
+			logger.Named("baz").Info("n")
+			logger.Named("baz").Warn("o")
+			logger.Named("baz").Error("p")
+
+			logger.Named("foo").Named("bar").Debug("q")
+			logger.Named("foo").Named("bar").Info("r")
+			logger.Named("foo").Named("bar").Warn("s")
+			logger.Named("foo").Named("bar").Error("t")
+
+			logger.Named("foo").Named("foo").Debug("u")
+			logger.Named("foo").Named("foo").Info("v")
+			logger.Named("foo").Named("foo").Warn("w")
+			logger.Named("foo").Named("foo").Error("x")
+
+			logger.Named("bar").Named("foo").Debug("y")
+			logger.Named("bar").Named("foo").Info("z")
+			logger.Named("bar").Named("foo").Warn("0")
+			logger.Named("bar").Named("foo").Error("1")
+
+			logger.Named("qux").Named("foo").Debug("2")
+			logger.Named("qux").Named("foo").Info("3")
+			logger.Named("qux").Named("foo").Warn("4")
+			logger.Named("qux").Named("foo").Error("5")
+
+			gotLogs := []string{}
+			for _, log := range logs.All() {
+				gotLogs = append(gotLogs, log.Message)
+			}
+
+			expectedLogs := strings.Split(tc.expectedLogs, "")
+			require.Equal(t, expectedLogs, gotLogs)
 		})
 	}
 }
