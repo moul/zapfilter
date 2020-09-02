@@ -150,6 +150,27 @@ func TestFilterFunc(t *testing.T) {
 			"all-except-error",
 			zapfilter.Reverse(zapfilter.ExactLevel(zapcore.ErrorLevel)),
 			[]string{"a", "b", "c"},
+		}, {
+			"any",
+			zapfilter.Any(
+				zapfilter.ExactLevel(zapcore.DebugLevel),
+				zapfilter.ExactLevel(zapcore.WarnLevel),
+			),
+			[]string{"a", "c"},
+		}, {
+			"all-1",
+			zapfilter.All(
+				zapfilter.ExactLevel(zapcore.DebugLevel),
+				zapfilter.ExactLevel(zapcore.WarnLevel),
+			),
+			[]string{},
+		}, {
+			"all-2",
+			zapfilter.All(
+				zapfilter.ExactLevel(zapcore.DebugLevel),
+				zapfilter.ExactLevel(zapcore.DebugLevel),
+			),
+			[]string{"a"},
 		},
 	}
 
