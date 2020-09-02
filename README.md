@@ -5,7 +5,6 @@
 [![go.dev reference](https://img.shields.io/badge/go.dev-reference-007d9c?logo=go&logoColor=white)](https://pkg.go.dev/moul.io/zapfilter)
 [![License](https://img.shields.io/badge/license-Apache--2.0%20%2F%20MIT-%2397ca00.svg)](https://github.com/moul/zapfilter/blob/master/COPYRIGHT)
 [![GitHub release](https://img.shields.io/github/release/moul/zapfilter.svg)](https://github.com/moul/zapfilter/releases)
-[![Docker Metrics](https://images.microbadger.com/badges/image/moul/zapfilter.svg)](https://microbadger.com/images/moul/zapfilter)
 [![Made by Manfred Touron](https://img.shields.io/badge/made%20by-Manfred%20Touron-blue.svg?style=flat)](https://manfred.life/)
 
 [![Go](https://github.com/moul/zapfilter/workflows/Go/badge.svg)](https://github.com/moul/zapfilter/actions?query=workflow%3AGo)
@@ -19,7 +18,23 @@
 
 ## Usage
 
-TODO
+```go
+import "moul.io/zapfilter"
+
+c := zap.NewExample().Core()
+
+logger := zap.New(zapfilter.NewFilteringCore(c, zapfilter.ByNamespaces("demo")))
+defer logger.Sync()
+
+logger.Debug("hello world!")
+logger.Named("demo").Debug("hello earth!")
+logger.Named("other").Debug("hello universe!")
+
+// Output:
+// {"level":"debug","logger":"demo","msg":"hello earth!"}
+```
+
+More examples on https://pkg.go.dev/moul.io/zapfilter
 
 ## Install
 
