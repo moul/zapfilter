@@ -12,13 +12,8 @@ import (
 // FilterFunc is used to check whether to filter the given entry and filters out.
 type FilterFunc func(zapcore.Entry, []zapcore.Field) bool
 
-type filteringCore struct {
-	next   zapcore.Core
-	filter FilterFunc
-}
-
-// NewFilteringCore returns a core middleware that uses the given filter function
-// to decide whether to actually call Write on the next core in the chain.
+// NewFilteringCore returns a core middleware that uses the given filter function to decide
+// whether to actually call Write on the next core in the chain.
 func NewFilteringCore(next zapcore.Core, filter FilterFunc) zapcore.Core {
 	if filter == nil {
 		filter = alwaysFalseFilter
@@ -26,13 +21,25 @@ func NewFilteringCore(next zapcore.Core, filter FilterFunc) zapcore.Core {
 	return &filteringCore{next, filter}
 }
 
-func (core *filteringCore) Check(entry zapcore.Entry, checked *zapcore.CheckedEntry) *zapcore.CheckedEntry {
-	if core.Enabled(entry.Level) {
-		return checked.AddCore(entry, core)
-	}
-	return checked
+type filteringCore struct {
+	next   zapcore.Core
+	filter FilterFunc
 }
 
+// Check determines whether the supplied zapcore.Entry should be logged.
+// If the entry should be logged, the filteringCore adds itself to the zapcore.CheckedEntry
+// and returns the results.
+func (core *filteringCore) Check(entry zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.CheckedEntry {
+	// FIXME: consider calling downstream core.Check too, but need to document how to
+	// properly set logging level.
+	if core.filter(entry, nil) {
+		ce = ce.AddCore(entry, core)
+	}
+	return ce
+}
+
+// Write determines whether the supplied zapcore.Entry with provided []zapcore.Field should
+// be logged, then calls the wrapped zapcore.Write.
 func (core *filteringCore) Write(entry zapcore.Entry, fields []zapcore.Field) error {
 	if !core.filter(entry, fields) {
 		return nil
@@ -40,29 +47,26 @@ func (core *filteringCore) Write(entry zapcore.Entry, fields []zapcore.Field) er
 	return core.next.Write(entry, fields)
 }
 
+// With adds structured context to the wrapped zapcore.Core.
 func (core *filteringCore) With(fields []zapcore.Field) zapcore.Core {
-	clone := core.clone()
-	clone.next = clone.next.With(fields)
-	return clone
-}
-
-func (core *filteringCore) Enabled(level zapcore.Level) bool {
-	return core.next.Enabled(level)
-}
-
-func (core *filteringCore) Sync() error {
-	return core.next.Sync()
-}
-
-func (core *filteringCore) clone() *filteringCore {
 	return &filteringCore{
-		next:   core.next,
+		next:   core.next.With(fields),
 		filter: core.filter,
 	}
 }
 
-func (core *filteringCore) Core() zapcore.Core {
-	return core
+// Enabled asks the wrapped zapcore.Core to decide whether a given logging level is enabled
+// when logging a message.
+func (core *filteringCore) Enabled(level zapcore.Level) bool {
+	// FIXME: Maybe it's better to always return true and only rely on the Check() func?
+	//        Another way to consider it is to keep the smaller log level configured on
+	//        zapfilter.
+	return core.next.Enabled(level)
+}
+
+// Sync flushed buffered logs (if any).
+func (core *filteringCore) Sync() error {
+	return core.next.Sync()
 }
 
 // ByNamespaces takes a list of patterns to filter out logs based on their namespaces.

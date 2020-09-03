@@ -62,9 +62,7 @@ func ExampleFilterFunc_custom() {
 
 	// Output:
 	// {"level":"debug","msg":"hello city!"}
-	// {"level":"debug","msg":"hello region!"}
-	// {"level":"debug","msg":"hello universe!"}
-	// {"level":"debug","msg":"hello multiverse!"}
+	// {"level":"debug","msg":"hello solar system!"}
 }
 
 func ExampleByNamespaces() {
@@ -342,6 +340,46 @@ func TestParseRules(t *testing.T) {
 
 			expectedLogs := strings.Split(tc.expectedLogs, "")
 			require.Equal(t, expectedLogs, gotLogs)
+		})
+	}
+}
+
+func TestCheck(t *testing.T) {
+	cases := []struct {
+		rules     string
+		namespace string
+		checked   bool
+	}{
+		{"", "", false},
+		{"", "foo", false},
+		{"*", "", true},
+		{"*", "foo", true},
+		{"*:foo", "", false},
+		{"*:foo", "foo", true},
+		{"*:foo", "bar", false},
+	}
+	for _, tc := range cases {
+		name := fmt.Sprintf("%s-%s", tc.rules, tc.namespace)
+		t.Run(name, func(t *testing.T) {
+			next, _ := observer.New(zapcore.DebugLevel)
+			filter, err := zapfilter.ParseRules(tc.rules)
+			if err != nil {
+				return
+			}
+
+			core := zapfilter.NewFilteringCore(next, filter)
+			logger := zap.New(core)
+
+			if tc.namespace != "" {
+				logger = logger.Named(tc.namespace)
+			}
+
+			entry := logger.Check(zap.DebugLevel, "")
+			if tc.checked {
+				require.NotNil(t, entry)
+			} else {
+				require.Nil(t, entry)
+			}
 		})
 	}
 }
