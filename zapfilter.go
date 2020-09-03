@@ -13,7 +13,7 @@ import (
 type FilterFunc func(zapcore.Entry, []zapcore.Field) bool
 
 type filteringCore struct {
-	zapcore.Core
+	next   zapcore.Core
 	filter FilterFunc
 }
 
@@ -37,7 +37,32 @@ func (core *filteringCore) Write(entry zapcore.Entry, fields []zapcore.Field) er
 	if !core.filter(entry, fields) {
 		return nil
 	}
-	return core.Core.Write(entry, fields)
+	return core.next.Write(entry, fields)
+}
+
+func (core *filteringCore) With(fields []zapcore.Field) zapcore.Core {
+	clone := core.clone()
+	clone.next = clone.next.With(fields)
+	return clone
+}
+
+func (core *filteringCore) Enabled(level zapcore.Level) bool {
+	return core.next.Enabled(level)
+}
+
+func (core *filteringCore) Sync() error {
+	return core.next.Sync()
+}
+
+func (core *filteringCore) clone() *filteringCore {
+	return &filteringCore{
+		next:   core.next,
+		filter: core.filter,
+	}
+}
+
+func (core *filteringCore) Core() zapcore.Core {
+	return core
 }
 
 // ByNamespace takes a list of patterns to filter out logs based on their namespaces.
