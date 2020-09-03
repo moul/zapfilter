@@ -116,6 +116,9 @@ func MinimumLevel(level zapcore.Level) FilterFunc {
 func Any(filters ...FilterFunc) FilterFunc {
 	return func(entry zapcore.Entry, fields []zapcore.Field) bool {
 		for _, filter := range filters {
+			if filter == nil {
+				continue
+			}
 			if filter(entry, fields) {
 				return true
 			}
@@ -134,18 +137,23 @@ func Reverse(filter FilterFunc) FilterFunc {
 // All checks if all filters return true.
 func All(filters ...FilterFunc) FilterFunc {
 	return func(entry zapcore.Entry, fields []zapcore.Field) bool {
+		var atLeastOneSuccessful bool
 		for _, filter := range filters {
+			if filter == nil {
+				continue
+			}
 			if !filter(entry, fields) {
 				return false
 			}
+			atLeastOneSuccessful = true
 		}
-		return true
+		return atLeastOneSuccessful
 	}
 }
 
 // ParseRules takes a CLI-friendly set of rules to construct a filter.
 func ParseRules(input string) (FilterFunc, error) {
-	topFilter := alwaysFalseFilter
+	var topFilter FilterFunc
 
 	// rules are separated by spaces, tabs or \n
 	for _, rule := range strings.Fields(input) {
@@ -172,7 +180,7 @@ func ParseRules(input string) (FilterFunc, error) {
 			enabledLevels = make(map[zapcore.Level]bool)
 		)
 		for _, leftPart := range strings.Split(left, ",") {
-			switch leftPart {
+			switch strings.ToLower(leftPart) {
 			case "", "*":
 				enabledLevels[zapcore.DebugLevel] = true
 				enabledLevels[zapcore.InfoLevel] = true
@@ -205,9 +213,9 @@ func ParseRules(input string) (FilterFunc, error) {
 		case 7:
 			topFilter = Any(topFilter, ByNamespaces(right))
 		default:
-			levelFilter := alwaysFalseFilter
+			var levelFilter FilterFunc
 			for level := range enabledLevels {
-				levelFilter = Any(levelFilter, ExactLevel(level))
+				levelFilter = Any(ExactLevel(level), levelFilter)
 			}
 			topFilter = Any(topFilter, All(levelFilter, ByNamespaces(right)))
 		}
