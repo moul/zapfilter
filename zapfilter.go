@@ -42,11 +42,19 @@ func (core *filteringCore) Write(entry zapcore.Entry, fields []zapcore.Field) er
 
 // ByNamespace takes a list of patterns to filter out logs based on their namespaces.
 // Patterns are checked using path.Match.
-func ByNamespaces(namespaces string) FilterFunc {
+func ByNamespaces(input string) FilterFunc {
+	if input == "" {
+		return alwaysFalseFilter
+	}
+	patterns := strings.Split(input, ",")
+	for _, pattern := range patterns {
+		if pattern == "*" {
+			return alwaysTrueFilter
+		}
+	}
+
 	var mutex sync.Mutex
 	matchMap := map[string]bool{}
-	patterns := strings.Split(namespaces, ",")
-
 	return func(entry zapcore.Entry, fields []zapcore.Field) bool {
 		mutex.Lock()
 		defer mutex.Unlock()
@@ -184,4 +192,8 @@ func MustParseRules(input string) FilterFunc {
 
 func alwaysFalseFilter(_ zapcore.Entry, _ []zapcore.Field) bool {
 	return false
+}
+
+func alwaysTrueFilter(_ zapcore.Entry, _ []zapcore.Field) bool {
+	return true
 }
