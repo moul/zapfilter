@@ -153,6 +153,9 @@ func ParseRules(input string) (FilterFunc, error) {
 				enabledLevels[zapcore.InfoLevel] = true
 				enabledLevels[zapcore.WarnLevel] = true
 				enabledLevels[zapcore.ErrorLevel] = true
+				enabledLevels[zapcore.DPanicLevel] = true
+				enabledLevels[zapcore.PanicLevel] = true
+				enabledLevels[zapcore.FatalLevel] = true
 			case "debug":
 				enabledLevels[zapcore.DebugLevel] = true
 			case "info":
@@ -161,6 +164,12 @@ func ParseRules(input string) (FilterFunc, error) {
 				enabledLevels[zapcore.WarnLevel] = true
 			case "error":
 				enabledLevels[zapcore.ErrorLevel] = true
+			case "dpanic":
+				enabledLevels[zapcore.DPanicLevel] = true
+			case "panic":
+				enabledLevels[zapcore.PanicLevel] = true
+			case "fatal":
+				enabledLevels[zapcore.FatalLevel] = true
 			default:
 				return nil, fmt.Errorf("unsupported keyword: %q", left)
 			}
@@ -168,7 +177,7 @@ func ParseRules(input string) (FilterFunc, error) {
 
 		// create rule's filter
 		switch len(enabledLevels) {
-		case 4:
+		case 7:
 			topFilter = Any(topFilter, ByNamespaces(right))
 		default:
 			levelFilter := alwaysFalseFilter
