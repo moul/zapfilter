@@ -181,7 +181,7 @@ func ParseRules(input string) (FilterFunc, error) {
 		)
 		for _, leftPart := range strings.Split(left, ",") {
 			switch strings.ToLower(leftPart) {
-			case "", "*":
+			case "", "*", "debug+":
 				enabledLevels[zapcore.DebugLevel] = true
 				enabledLevels[zapcore.InfoLevel] = true
 				enabledLevels[zapcore.WarnLevel] = true
@@ -193,15 +193,40 @@ func ParseRules(input string) (FilterFunc, error) {
 				enabledLevels[zapcore.DebugLevel] = true
 			case "info":
 				enabledLevels[zapcore.InfoLevel] = true
+			case "info+":
+				enabledLevels[zapcore.InfoLevel] = true
+				enabledLevels[zapcore.WarnLevel] = true
+				enabledLevels[zapcore.ErrorLevel] = true
+				enabledLevels[zapcore.DPanicLevel] = true
+				enabledLevels[zapcore.PanicLevel] = true
+				enabledLevels[zapcore.FatalLevel] = true
 			case "warn":
 				enabledLevels[zapcore.WarnLevel] = true
+			case "warn+":
+				enabledLevels[zapcore.WarnLevel] = true
+				enabledLevels[zapcore.ErrorLevel] = true
+				enabledLevels[zapcore.DPanicLevel] = true
+				enabledLevels[zapcore.PanicLevel] = true
+				enabledLevels[zapcore.FatalLevel] = true
 			case "error":
 				enabledLevels[zapcore.ErrorLevel] = true
+			case "error+":
+				enabledLevels[zapcore.ErrorLevel] = true
+				enabledLevels[zapcore.DPanicLevel] = true
+				enabledLevels[zapcore.PanicLevel] = true
+				enabledLevels[zapcore.FatalLevel] = true
 			case "dpanic":
 				enabledLevels[zapcore.DPanicLevel] = true
+			case "dpanic+":
+				enabledLevels[zapcore.DPanicLevel] = true
+				enabledLevels[zapcore.PanicLevel] = true
+				enabledLevels[zapcore.FatalLevel] = true
 			case "panic":
 				enabledLevels[zapcore.PanicLevel] = true
-			case "fatal":
+			case "panic+":
+				enabledLevels[zapcore.PanicLevel] = true
+				enabledLevels[zapcore.FatalLevel] = true
+			case "fatal", "fatal+":
 				enabledLevels[zapcore.FatalLevel] = true
 			default:
 				return nil, fmt.Errorf("unsupported keyword: %q", left)
