@@ -13,10 +13,6 @@ import (
 	"moul.io/zapfilter"
 )
 
-func Example() {
-
-}
-
 func ExampleNewFilteringCore_wrap() {
 	filtered := zap.WrapCore(func(c zapcore.Core) zapcore.Core {
 		return zapfilter.NewFilteringCore(c, zapfilter.ByNamespaces("demo*"))
@@ -127,6 +123,8 @@ func ExampleParseRules() {
 }
 
 func TestFilterFunc(t *testing.T) {
+	t.Parallel()
+
 	cases := []struct {
 		name         string
 		filterFunc   zapfilter.FilterFunc
@@ -218,6 +216,8 @@ func TestFilterFunc(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			next, logs := observer.New(zapcore.DebugLevel)
 			core := zapfilter.NewFilteringCore(next, tc.filterFunc)
 			logger := zap.New(core)
@@ -238,6 +238,8 @@ func TestFilterFunc(t *testing.T) {
 }
 
 func TestParseRules(t *testing.T) {
+	t.Parallel()
+
 	const (
 		allDebug   = "aeimquy2"
 		allInfo    = "bfjnrvz3"
@@ -275,6 +277,8 @@ func TestParseRules(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			next, logs := observer.New(zapcore.DebugLevel)
 			filter, err := zapfilter.ParseRules(tc.input)
 			require.Equal(t, tc.expectedError, err)
