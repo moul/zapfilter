@@ -1,6 +1,6 @@
 # zapfilter
 
-:smile: zapfilter
+ ⚡💊 advanced filtering for uber's zap logger
 
 [![go.dev reference](https://img.shields.io/badge/go.dev-reference-007d9c?logo=go&logoColor=white)](https://pkg.go.dev/moul.io/zapfilter)
 [![License](https://img.shields.io/badge/license-Apache--2.0%20%2F%20MIT-%2397ca00.svg)](https://github.com/moul/zapfilter/blob/master/COPYRIGHT)
@@ -60,6 +60,48 @@ func ExampleParseRules() {
 	// {"level":"error","logger":"bar","msg":"bar error"}
 	// {"level":"error","logger":"myns.foo","msg":"myns.foo error"}
 }
+```
+
+[embedmd]:# (.tmp/godoc.txt txt /FUNCTIONS/ $)
+```txt
+FUNCTIONS
+
+func NewFilteringCore(next zapcore.Core, filter FilterFunc) zapcore.Core
+    NewFilteringCore returns a core middleware that uses the given filter
+    function to decide whether to actually call Write on the next core in the
+    chain.
+
+
+TYPES
+
+type FilterFunc func(zapcore.Entry, []zapcore.Field) bool
+    FilterFunc is used to check whether to filter the given entry and filters
+    out.
+
+func All(filters ...FilterFunc) FilterFunc
+    All checks if all filters return true.
+
+func Any(filters ...FilterFunc) FilterFunc
+    Any checks if any filter returns true.
+
+func ByNamespaces(input string) FilterFunc
+    ByNamespace takes a list of patterns to filter out logs based on their
+    namespaces. Patterns are checked using path.Match.
+
+func ExactLevel(level zapcore.Level) FilterFunc
+    ExactLevel filters out entries with an invalid level.
+
+func MinimumLevel(level zapcore.Level) FilterFunc
+    MinimumLevel filters out entries with a too low level.
+
+func MustParseRules(input string) FilterFunc
+
+func ParseRules(input string) (FilterFunc, error)
+    ParseRules takes a CLI-friendly set of rules to construct a filter.
+
+func Reverse(filter FilterFunc) FilterFunc
+    Reverse checks is the passed filter returns false.
+
 ```
 
 More examples on https://pkg.go.dev/moul.io/zapfilter
