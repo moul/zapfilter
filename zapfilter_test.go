@@ -273,11 +273,17 @@ func TestParseRules(t *testing.T) {
 		{"foo.star-ns-wildcard", "*:foo.*", "qrstuvwx", nil},
 		{"foo.star-ns-debug,info", "debug,info:foo.*", "qruv", nil},
 		{"all-in-one", "*:foo debug:foo.* info,warn:bar error:*", "defghjklpqtux15", nil},
+		{"exclude-1", "info:test,foo*,-foo.foo", "fr", nil},
+		{"exclude-2", "info:test,foo*,-*.foo", "fr", nil},
+		{"exclude-3", "test,*.foo,-foo.*", "yz012345", nil},
 		{"invalid-left", "invalid:*", "", fmt.Errorf(`unsupported keyword: "invalid"`)},
+		{"missing-left", ":*", "", fmt.Errorf(`bad syntax`)},
+		{"missing-right", ":*", "", fmt.Errorf(`bad syntax`)},
+		//{"missing-exclude-pattern", "*:-", "", fmt.Errorf(`bad syntax`)},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
+			//t.Parallel()
 
 			next, logs := observer.New(zapcore.DebugLevel)
 			filter, err := zapfilter.ParseRules(tc.input)

@@ -65,15 +65,27 @@ func (core *filteringCore) Core() zapcore.Core {
 	return core
 }
 
-// ByNamespace takes a list of patterns to filter out logs based on their namespaces.
+// ByNamespaces takes a list of patterns to filter out logs based on their namespaces.
 // Patterns are checked using path.Match.
 func ByNamespaces(input string) FilterFunc {
 	if input == "" {
 		return alwaysFalseFilter
 	}
 	patterns := strings.Split(input, ",")
-	for _, pattern := range patterns {
-		if pattern == "*" {
+
+	// edge case optimization (always true)
+	{
+		hasIncludeWildcard := false
+		hasExclude := false
+		for _, pattern := range patterns {
+			if pattern == "*" {
+				hasIncludeWildcard = true
+			}
+			if pattern[0] == '-' {
+				hasExclude = true
+			}
+		}
+		if hasIncludeWildcard && !hasExclude {
 			return alwaysTrueFilter
 		}
 	}
@@ -86,13 +98,21 @@ func ByNamespaces(input string) FilterFunc {
 
 		if _, found := matchMap[entry.LoggerName]; !found {
 			matchMap[entry.LoggerName] = false
-		patternLookup:
+			matchInclude := false
+			matchExclude := false
 			for _, pattern := range patterns {
-				if matched, _ := path.Match(pattern, entry.LoggerName); matched {
-					matchMap[entry.LoggerName] = true
-					break patternLookup
+				switch {
+				case pattern[0] == '-' && !matchExclude:
+					if matched, _ := path.Match(pattern[1:], entry.LoggerName); matched {
+						matchExclude = true
+					}
+				case pattern[0] != '-' && !matchInclude:
+					if matched, _ := path.Match(pattern, entry.LoggerName); matched {
+						matchInclude = true
+					}
 				}
 			}
+			matchMap[entry.LoggerName] = matchInclude && !matchExclude
 		}
 		return matchMap[entry.LoggerName]
 	}
@@ -169,6 +189,9 @@ func ParseRules(input string) (FilterFunc, error) {
 			// if no separator, left stays empty
 			right = parts[0]
 		case 2:
+			if parts[0] == "" || parts[1] == "" {
+				return nil, fmt.Errorf("bad syntax")
+			}
 			left = parts[0]
 			right = parts[1]
 		default:
