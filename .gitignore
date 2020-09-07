@@ -1,4 +1,5 @@
 go-test.json
+.tmp/
 
 # Temporary files
 *~
