@@ -85,7 +85,7 @@ func Any(filters ...FilterFunc) FilterFunc
     Any checks if any filter returns true.
 
 func ByNamespaces(input string) FilterFunc
-    ByNamespace takes a list of patterns to filter out logs based on their
+    ByNamespaces takes a list of patterns to filter out logs based on their
     namespaces. Patterns are checked using path.Match.
 
 func ExactLevel(level zapcore.Level) FilterFunc
