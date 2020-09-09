@@ -88,6 +88,30 @@ func All(filters ...FilterFunc) FilterFunc
 func Any(filters ...FilterFunc) FilterFunc
     Any checks if any filter returns true.
 
+func ByLevels(pattern string) (FilterFunc, error)
+    ByLevels creates a FilterFunc based on a pattern.
+
+    Level Patterns
+
+        | Pattern | Debug | Info | Warn | Error | DPanic | Panic | Fatal |
+        | ------- | ----- | ---- | ---- | ----- | ------ | ----- | ----- |
+        | <empty> | X     | X    | X    | X     | X      | X     | X     |
+        | *       | X     | X    | X    | X     | x      | X     | X     |
+        | debug   | X     |      |      |       |        |       |       |
+        | info    |       | X    |      |       |        |       |       |
+        | warn    |       |      | X    |       |        |       |       |
+        | error   |       |      |      | X     |        |       |       |
+        | dpanic  |       |      |      |       | X      |       |       |
+        | panic   |       |      |      |       |        | X     |       |
+        | fatal   |       |      |      |       |        |       | X     |
+        | debug+  | X     | X    | x    | X     | X      | X     | X     |
+        | info+   |       | X    | X    | X     | X      | X     | X     |
+        | warn+   |       |      | X    | X     | X      | X     | X     |
+        | error+  |       |      |      | X     | X      | X     | X     |
+        | dpanic+ |       |      |      |       | X      | X     | X     |
+        | panic+  |       |      |      |       |        | X     | X     |
+        | fatal+  |       |      |      |       |        |       | X     |
+
 func ByNamespaces(input string) FilterFunc
     ByNamespaces takes a list of patterns to filter out logs based on their
     namespaces. Patterns are checked using path.Match.
@@ -111,33 +135,12 @@ func ParseRules(pattern string) (FilterFunc, error)
          - LEVELS:NAMESPACES
          - NAMESPACES
         LEVELS: LEVEL,[,LEVEL]
-        LEVEL: see `Level Patterns` below
+        LEVEL: see `Level Patterns`
         NAMESPACES: NAMESPACE[,NAMESPACE]
         NAMESPACE: one of:
          - namespace     // should be exactly this namespace
          - *mat*ch*      // should match
          - -NAMESPACE    // should not match
-
-    Level Patterns
-
-        | Pattern | Debug | Info | Warn | Error | DPanic | Panic | Fatal |
-        | ------- | ----- | ---- | ---- | ----- | ------ | ----- | ----- |
-        | <empty> | X     | X    | X    | X     | X      | X     | X     |
-        | *       | X     | X    | X    | X     | x      | X     | X     |
-        | debug   | X     |      |      |       |        |       |       |
-        | info    |       | X    |      |       |        |       |       |
-        | warn    |       |      | X    |       |        |       |       |
-        | error   |       |      |      | X     |        |       |       |
-        | dpanic  |       |      |      |       | X      |       |       |
-        | panic   |       |      |      |       |        | X     |       |
-        | fatal   |       |      |      |       |        |       | X     |
-        | debug+  | X     | X    | x    | X     | X      | X     | X     |
-        | info+   |       | X    | X    | X     | X      | X     | X     |
-        | warn+   |       |      | X    | X     | X      | X     | X     |
-        | error+  |       |      |      | X     | X      | X     | X     |
-        | dpanic+ |       |      |      |       | X      | X     | X     |
-        | panic+  |       |      |      |       |        | X     | X     |
-        | fatal+  |       |      |      |       |        |       | X     |
 
     Examples
 

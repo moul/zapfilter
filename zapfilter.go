@@ -201,32 +201,12 @@ func All(filters ...FilterFunc) FilterFunc {
 //    - LEVELS:NAMESPACES
 //    - NAMESPACES
 //   LEVELS: LEVEL,[,LEVEL]
-//   LEVEL: see `Level Patterns` below
+//   LEVEL: see `Level Patterns`
 //   NAMESPACES: NAMESPACE[,NAMESPACE]
 //   NAMESPACE: one of:
 //    - namespace     // should be exactly this namespace
 //    - *mat*ch*      // should match
 //    - -NAMESPACE    // should not match
-//
-// Level Patterns
-//   | Pattern | Debug | Info | Warn | Error | DPanic | Panic | Fatal |
-//   | ------- | ----- | ---- | ---- | ----- | ------ | ----- | ----- |
-//   | <empty> | X     | X    | X    | X     | X      | X     | X     |
-//   | *       | X     | X    | X    | X     | x      | X     | X     |
-//   | debug   | X     |      |      |       |        |       |       |
-//   | info    |       | X    |      |       |        |       |       |
-//   | warn    |       |      | X    |       |        |       |       |
-//   | error   |       |      |      | X     |        |       |       |
-//   | dpanic  |       |      |      |       | X      |       |       |
-//   | panic   |       |      |      |       |        | X     |       |
-//   | fatal   |       |      |      |       |        |       | X     |
-//   | debug+  | X     | X    | x    | X     | X      | X     | X     |
-//   | info+   |       | X    | X    | X     | X      | X     | X     |
-//   | warn+   |       |      | X    | X     | X      | X     | X     |
-//   | error+  |       |      |      | X     | X      | X     | X     |
-//   | dpanic+ |       |      |      |       | X      | X     | X     |
-//   | panic+  |       |      |      |       |        | X     | X     |
-//   | fatal+  |       |      |      |       |        |       | X     |
 //
 // Examples
 //
@@ -271,79 +251,114 @@ func ParseRules(pattern string) (FilterFunc, error) {
 			return nil, fmt.Errorf("bad syntax")
 		}
 
-		// parse left part
-		var (
-			enabledLevels = make(map[zapcore.Level]bool)
-		)
-		for _, leftPart := range strings.Split(left, ",") {
-			switch strings.ToLower(leftPart) {
-			case "", "*", "debug+":
-				enabledLevels[zapcore.DebugLevel] = true
-				enabledLevels[zapcore.InfoLevel] = true
-				enabledLevels[zapcore.WarnLevel] = true
-				enabledLevels[zapcore.ErrorLevel] = true
-				enabledLevels[zapcore.DPanicLevel] = true
-				enabledLevels[zapcore.PanicLevel] = true
-				enabledLevels[zapcore.FatalLevel] = true
-			case "debug":
-				enabledLevels[zapcore.DebugLevel] = true
-			case "info":
-				enabledLevels[zapcore.InfoLevel] = true
-			case "info+":
-				enabledLevels[zapcore.InfoLevel] = true
-				enabledLevels[zapcore.WarnLevel] = true
-				enabledLevels[zapcore.ErrorLevel] = true
-				enabledLevels[zapcore.DPanicLevel] = true
-				enabledLevels[zapcore.PanicLevel] = true
-				enabledLevels[zapcore.FatalLevel] = true
-			case "warn":
-				enabledLevels[zapcore.WarnLevel] = true
-			case "warn+":
-				enabledLevels[zapcore.WarnLevel] = true
-				enabledLevels[zapcore.ErrorLevel] = true
-				enabledLevels[zapcore.DPanicLevel] = true
-				enabledLevels[zapcore.PanicLevel] = true
-				enabledLevels[zapcore.FatalLevel] = true
-			case "error":
-				enabledLevels[zapcore.ErrorLevel] = true
-			case "error+":
-				enabledLevels[zapcore.ErrorLevel] = true
-				enabledLevels[zapcore.DPanicLevel] = true
-				enabledLevels[zapcore.PanicLevel] = true
-				enabledLevels[zapcore.FatalLevel] = true
-			case "dpanic":
-				enabledLevels[zapcore.DPanicLevel] = true
-			case "dpanic+":
-				enabledLevels[zapcore.DPanicLevel] = true
-				enabledLevels[zapcore.PanicLevel] = true
-				enabledLevels[zapcore.FatalLevel] = true
-			case "panic":
-				enabledLevels[zapcore.PanicLevel] = true
-			case "panic+":
-				enabledLevels[zapcore.PanicLevel] = true
-				enabledLevels[zapcore.FatalLevel] = true
-			case "fatal", "fatal+":
-				enabledLevels[zapcore.FatalLevel] = true
-			default:
-				return nil, fmt.Errorf("unsupported keyword: %q", left)
-			}
+		levelFilter, err := ByLevels(left)
+		if err != nil {
+			return nil, err
 		}
-
-		// create rule's filter
-		switch len(enabledLevels) {
-		case 7:
-			topFilter = Any(topFilter, ByNamespaces(right))
-		default:
-			var levelFilter FilterFunc
-			for level := range enabledLevels {
-				levelFilter = Any(ExactLevel(level), levelFilter)
-			}
-			topFilter = Any(topFilter, All(levelFilter, ByNamespaces(right)))
-		}
+		namespaceFilter := ByNamespaces(right)
+		topFilter = Any(topFilter, All(levelFilter, namespaceFilter))
 	}
 
 	return topFilter, nil
 }
+
+// ByLevels creates a FilterFunc based on a pattern.
+//
+// Level Patterns
+//   | Pattern | Debug | Info | Warn | Error | DPanic | Panic | Fatal |
+//   | ------- | ----- | ---- | ---- | ----- | ------ | ----- | ----- |
+//   | <empty> | X     | X    | X    | X     | X      | X     | X     |
+//   | *       | X     | X    | X    | X     | x      | X     | X     |
+//   | debug   | X     |      |      |       |        |       |       |
+//   | info    |       | X    |      |       |        |       |       |
+//   | warn    |       |      | X    |       |        |       |       |
+//   | error   |       |      |      | X     |        |       |       |
+//   | dpanic  |       |      |      |       | X      |       |       |
+//   | panic   |       |      |      |       |        | X     |       |
+//   | fatal   |       |      |      |       |        |       | X     |
+//   | debug+  | X     | X    | x    | X     | X      | X     | X     |
+//   | info+   |       | X    | X    | X     | X      | X     | X     |
+//   | warn+   |       |      | X    | X     | X      | X     | X     |
+//   | error+  |       |      |      | X     | X      | X     | X     |
+//   | dpanic+ |       |      |      |       | X      | X     | X     |
+//   | panic+  |       |      |      |       |        | X     | X     |
+//   | fatal+  |       |      |      |       |        |       | X     |
+func ByLevels(pattern string) (FilterFunc, error) {
+	// parse pattern
+	var enabled uint
+	for _, part := range strings.Split(pattern, ",") {
+		switch strings.ToLower(part) {
+		case "", "*", "debug+":
+			enabled |= debugLevel | infoLevel | warnLevel | errorLevel | dpanicLevel | panicLevel | fatalLevel
+		case "debug":
+			enabled |= debugLevel
+		case "info":
+			enabled |= infoLevel
+		case "info+":
+			enabled |= infoLevel | warnLevel | errorLevel | dpanicLevel | panicLevel | fatalLevel
+		case "warn":
+			enabled |= warnLevel
+		case "warn+":
+			enabled |= warnLevel | errorLevel | dpanicLevel | panicLevel | fatalLevel
+		case "error":
+			enabled |= errorLevel
+		case "error+":
+			enabled |= errorLevel | dpanicLevel | panicLevel | fatalLevel
+		case "dpanic":
+			enabled |= dpanicLevel
+		case "dpanic+":
+			enabled |= dpanicLevel | panicLevel | fatalLevel
+		case "panic":
+			enabled |= panicLevel
+		case "panic+":
+			enabled |= panicLevel | fatalLevel
+		case "fatal", "fatal+":
+			enabled |= fatalLevel
+		default:
+			return nil, fmt.Errorf("unsupported keyword: %q", pattern)
+		}
+	}
+
+	// if everything is enabled
+	if enabled == debugLevel&infoLevel&warnLevel&errorLevel&dpanicLevel&panicLevel&fatalLevel {
+		return alwaysTrueFilter, nil
+	}
+
+	// construct custom filter
+	var filter FilterFunc
+	if enabled&debugLevel != 0 {
+		filter = Any(ExactLevel(zapcore.DebugLevel), filter)
+	}
+	if enabled&infoLevel != 0 {
+		filter = Any(ExactLevel(zapcore.InfoLevel), filter)
+	}
+	if enabled&warnLevel != 0 {
+		filter = Any(ExactLevel(zapcore.WarnLevel), filter)
+	}
+	if enabled&errorLevel != 0 {
+		filter = Any(ExactLevel(zapcore.ErrorLevel), filter)
+	}
+	if enabled&dpanicLevel != 0 {
+		filter = Any(ExactLevel(zapcore.DPanicLevel), filter)
+	}
+	if enabled&panicLevel != 0 {
+		filter = Any(ExactLevel(zapcore.PanicLevel), filter)
+	}
+	if enabled&fatalLevel != 0 {
+		filter = Any(ExactLevel(zapcore.FatalLevel), filter)
+	}
+	return filter, nil
+}
+
+const (
+	debugLevel uint = 1 << iota
+	infoLevel
+	warnLevel
+	errorLevel
+	dpanicLevel
+	panicLevel
+	fatalLevel
+)
 
 // MustParseRules calls ParseRules and panics if initialization failed.
 func MustParseRules(pattern string) FilterFunc {
