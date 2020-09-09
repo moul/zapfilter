@@ -193,11 +193,63 @@ func All(filters ...FilterFunc) FilterFunc {
 }
 
 // ParseRules takes a CLI-friendly set of rules to construct a filter.
-func ParseRules(input string) (FilterFunc, error) {
+//
+// Syntax
+//
+//   pattern: RULE [RULE...]
+//   RULE: one of:
+//    - LEVELS:NAMESPACES
+//    - NAMESPACES
+//   LEVELS: LEVEL,[,LEVEL]
+//   LEVEL: see `Level Patterns` below
+//   NAMESPACES: NAMESPACE[,NAMESPACE]
+//   NAMESPACE: one of:
+//    - namespace     // should be exactly this namespace
+//    - *mat*ch*      // should match
+//    - -NAMESPACE    // should not match
+//
+// Level Patterns
+//   | Pattern | Debug | Info | Warn | Error | DPanic | Panic | Fatal |
+//   | ------- | ----- | ---- | ---- | ----- | ------ | ----- | ----- |
+//   | <empty> | X     | X    | X    | X     | X      | X     | X     |
+//   | *       | X     | X    | X    | X     | x      | X     | X     |
+//   | debug   | X     |      |      |       |        |       |       |
+//   | info    |       | X    |      |       |        |       |       |
+//   | warn    |       |      | X    |       |        |       |       |
+//   | error   |       |      |      | X     |        |       |       |
+//   | dpanic  |       |      |      |       | X      |       |       |
+//   | panic   |       |      |      |       |        | X     |       |
+//   | fatal   |       |      |      |       |        |       | X     |
+//   | debug+  | X     | X    | x    | X     | X      | X     | X     |
+//   | info+   |       | X    | X    | X     | X      | X     | X     |
+//   | warn+   |       |      | X    | X     | X      | X     | X     |
+//   | error+  |       |      |      | X     | X      | X     | X     |
+//   | dpanic+ |       |      |      |       | X      | X     | X     |
+//   | panic+  |       |      |      |       |        | X     | X     |
+//   | fatal+  |       |      |      |       |        |       | X     |
+//
+// Examples
+//
+//    *                            everything
+//    *:*                          everything
+//    info:*                       level info;  any namespace
+//    info+:*                      levels info, warn, error, dpanic, panic, and fatal; any namespace
+//    info,warn:*                  levels info, warn; any namespace
+//    ns1                          any level; namespace 'ns1'
+//    *:ns1                        any level; namespace 'ns1'
+//    ns1*                         any level; namespaces matching 'ns1*'
+//    *:ns1*                       any level; namespaces matching 'ns1*'
+//    *:ns1,ns2                    any level; namespaces 'ns1' and 'ns2'
+//    *:ns*,-ns3*                  any level; namespaces matching 'ns*' but not matching 'ns3*'
+//    info:ns1                     level info; namespace 'ns1'
+//    info,warn:ns1,ns2            levels info and warn; namespaces 'ns1' and 'ns2'
+//    info:ns1 warn:n2             level info + namespace 'ns1' OR level warn and namespace 'ns2'
+//    info,warn:myns* error+:*     levels info or warn and namespaces matching 'myns*' OR levels error, dpanic, panic or fatal for any namespace
+func ParseRules(pattern string) (FilterFunc, error) {
 	var topFilter FilterFunc
 
 	// rules are separated by spaces, tabs or \n
-	for _, rule := range strings.Fields(input) {
+	for _, rule := range strings.Fields(pattern) {
 		// split rule into parts (separated by ':')
 		rule = strings.TrimSpace(rule)
 		if rule == "" {
@@ -293,8 +345,9 @@ func ParseRules(input string) (FilterFunc, error) {
 	return topFilter, nil
 }
 
-func MustParseRules(input string) FilterFunc {
-	filter, err := ParseRules(input)
+// MustParseRules calls ParseRules and panics if initialization failed.
+func MustParseRules(pattern string) FilterFunc {
+	filter, err := ParseRules(pattern)
 	if err != nil {
 		panic(err)
 	}

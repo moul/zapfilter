@@ -433,3 +433,7 @@ func ExampleCheckAnyLevel() {
 	// false
 	// true
 }
+
+func Example_with() {
+
+}
