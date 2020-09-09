@@ -6,19 +6,33 @@ import (
 	"strings"
 	"sync"
 
+	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
 // FilterFunc is used to check whether to filter the given entry and filters out.
 type FilterFunc func(zapcore.Entry, []zapcore.Field) bool
 
-// NewFilteringCore returns a core middleware that uses the given filter function to decide
-// whether to actually call Write on the next core in the chain.
+// NewFilteringCore returns a core middleware that uses the given filter function to
+// determine whether to actually call Write on the next core in the chain.
 func NewFilteringCore(next zapcore.Core, filter FilterFunc) zapcore.Core {
 	if filter == nil {
 		filter = alwaysFalseFilter
 	}
 	return &filteringCore{next, filter}
+}
+
+// CheckAnyLevel determines whether at least one log level isn't filtered-out by the logger.
+func CheckAnyLevel(logger *zap.Logger) bool {
+	for _, level := range allLevels {
+		if level >= zapcore.PanicLevel {
+			continue // panic and fatal cannot be skipped
+		}
+		if logger.Check(level, "") != nil {
+			return true
+		}
+	}
+	return false
 }
 
 type filteringCore struct {
@@ -82,6 +96,9 @@ func ByNamespaces(input string) FilterFunc {
 		hasIncludeWildcard := false
 		hasExclude := false
 		for _, pattern := range patterns {
+			if pattern == "" {
+				continue
+			}
 			if pattern == "*" {
 				hasIncludeWildcard = true
 			}
@@ -290,4 +307,14 @@ func alwaysFalseFilter(_ zapcore.Entry, _ []zapcore.Field) bool {
 
 func alwaysTrueFilter(_ zapcore.Entry, _ []zapcore.Field) bool {
 	return true
+}
+
+var allLevels = []zapcore.Level{
+	zapcore.DebugLevel,
+	zapcore.InfoLevel,
+	zapcore.WarnLevel,
+	zapcore.ErrorLevel,
+	zapcore.DPanicLevel,
+	zapcore.PanicLevel,
+	zapcore.FatalLevel,
 }
