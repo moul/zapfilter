@@ -435,5 +435,16 @@ func ExampleCheckAnyLevel() {
 }
 
 func Example_with() {
+	core := zap.NewExample().Core()
+	logger := zap.New(zapfilter.NewFilteringCore(core, zapfilter.ByNamespaces("demo1.*,demo3.*")))
+	defer logger.Sync()
 
+	logger.With(zap.String("lorem", "ipsum")).Debug("hello city!")
+	logger.With(zap.String("lorem", "ipsum")).Named("demo1.frontend").Debug("hello region!")
+	logger.With(zap.String("lorem", "ipsum")).Named("demo2.frontend").Debug("hello planet!")
+	logger.With(zap.String("lorem", "ipsum")).Named("demo3.frontend").Debug("hello solar system!")
+
+	// Output:
+	// {"level":"debug","logger":"demo1.frontend","msg":"hello region!","lorem":"ipsum"}
+	// {"level":"debug","logger":"demo3.frontend","msg":"hello solar system!","lorem":"ipsum"}
 }
