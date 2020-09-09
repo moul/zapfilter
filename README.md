@@ -66,6 +66,10 @@ func ExampleParseRules() {
 ```txt
 FUNCTIONS
 
+func CheckAnyLevel(logger *zap.Logger) bool
+    CheckAnyLevel determines whether at least one log level isn't filtered-out
+    by the logger.
+
 func NewFilteringCore(next zapcore.Core, filter FilterFunc) zapcore.Core
     NewFilteringCore returns a core middleware that uses the given filter
     function to decide whether to actually call Write on the next core in the

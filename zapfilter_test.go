@@ -15,7 +15,7 @@ import (
 
 func ExampleNewFilteringCore_wrap() {
 	filtered := zap.WrapCore(func(c zapcore.Core) zapcore.Core {
-		return zapfilter.NewFilteringCore(c, zapfilter.ByNamespaces("demo*"))
+		return zapfilter.NewFilteringCore(c, zapfilter.MustParseRules("demo*"))
 	})
 
 	logger := zap.NewExample()
@@ -32,7 +32,7 @@ func ExampleNewFilteringCore_wrap() {
 func ExampleNewFilteringCore_newlogger() {
 	c := zap.NewExample().Core()
 
-	logger := zap.New(zapfilter.NewFilteringCore(c, zapfilter.ByNamespaces("demo*")))
+	logger := zap.New(zapfilter.NewFilteringCore(c, zapfilter.MustParseRules("demo*")))
 	defer logger.Sync()
 
 	logger.Debug("hello world!")
@@ -62,9 +62,7 @@ func ExampleFilterFunc_custom() {
 
 	// Output:
 	// {"level":"debug","msg":"hello city!"}
-	// {"level":"debug","msg":"hello region!"}
-	// {"level":"debug","msg":"hello universe!"}
-	// {"level":"debug","msg":"hello multiverse!"}
+	// {"level":"debug","msg":"hello solar system!"}
 }
 
 func ExampleByNamespaces() {
@@ -344,4 +342,94 @@ func TestParseRules(t *testing.T) {
 			require.Equal(t, expectedLogs, gotLogs)
 		})
 	}
+}
+
+func TestCheck(t *testing.T) {
+	cases := []struct {
+		rules     string
+		namespace string
+		checked   bool
+	}{
+		{"", "", false},
+		{"", "foo", false},
+		{"*", "", true},
+		{"*", "foo", true},
+		{"*:foo", "", false},
+		{"*:foo", "foo", true},
+		{"*:foo", "bar", false},
+	}
+	for _, tc := range cases {
+		name := fmt.Sprintf("%s-%s", tc.rules, tc.namespace)
+		t.Run(name, func(t *testing.T) {
+			next, _ := observer.New(zapcore.DebugLevel)
+			filter, err := zapfilter.ParseRules(tc.rules)
+			if err != nil {
+				return
+			}
+
+			core := zapfilter.NewFilteringCore(next, filter)
+			logger := zap.New(core)
+
+			if tc.namespace != "" {
+				logger = logger.Named(tc.namespace)
+			}
+
+			entry := logger.Check(zap.DebugLevel, "")
+			if tc.checked {
+				require.NotNil(t, entry)
+			} else {
+				require.Nil(t, entry)
+			}
+		})
+	}
+}
+
+func Example_check() {
+	c := zap.NewExample().Core()
+	logger := zap.New(zapfilter.NewFilteringCore(c, zapfilter.MustParseRules("debug:* info:demo*")))
+
+	if ce := logger.Check(zap.DebugLevel, "AAA"); ce != nil {
+		// here you can make expensive computing
+		fmt.Println("BBB")
+		ce.Write()
+	}
+	if ce := logger.Check(zap.InfoLevel, "CCC"); ce != nil {
+		// here you can make expensive computing
+		fmt.Println("DDD")
+		ce.Write()
+	}
+	if ce := logger.Named("demo").Check(zap.InfoLevel, "EEE"); ce != nil {
+		// here you can make expensive computing
+		fmt.Println("FFF")
+		ce.Write()
+	}
+	if ce := logger.Check(zap.WarnLevel, "GGG"); ce != nil {
+		// here you can make expensive computing
+		fmt.Println("HHH")
+		ce.Write()
+	}
+	// Output:
+	// BBB
+	// {"level":"debug","msg":"AAA"}
+	// FFF
+	// {"level":"info","logger":"demo","msg":"EEE"}
+}
+
+func ExampleCheckAnyLevel() {
+	c := zap.NewExample().Core()
+	logger := zap.New(zapfilter.NewFilteringCore(c, zapfilter.MustParseRules("debug:*.* info:demo*")))
+
+	fmt.Println(zapfilter.CheckAnyLevel(logger))
+	fmt.Println(zapfilter.CheckAnyLevel(logger.Named("demo")))
+	fmt.Println(zapfilter.CheckAnyLevel(logger.Named("blahdemo")))
+	fmt.Println(zapfilter.CheckAnyLevel(logger.Named("demoblah")))
+	fmt.Println(zapfilter.CheckAnyLevel(logger.Named("blah")))
+	fmt.Println(zapfilter.CheckAnyLevel(logger.Named("blah.blah")))
+	// Output:
+	// false
+	// true
+	// false
+	// true
+	// false
+	// true
 }
