@@ -274,6 +274,9 @@ func TestParseRules(t *testing.T) {
 		{"exclude-1", "info:test,foo*,-foo.foo", "fr", nil},
 		{"exclude-2", "info:test,foo*,-*.foo", "fr", nil},
 		{"exclude-3", "test,*.foo,-foo.*", "yz012345", nil},
+		{"exclude-4", "*,-foo,-bar", "abcdmnopqrstuvwxyz012345", nil},
+		{"exclude-5", "foo*,bar*,-foo.foo,-bar.foo", "efghijklqrst", nil},
+		{"exclude-6", "foo*,-foo.foo,bar*,-bar.foo", "efghijklqrst", nil},
 		{"invalid-left", "invalid:*", "", fmt.Errorf(`unsupported keyword: "invalid"`)},
 		{"missing-left", ":*", "", fmt.Errorf(`bad syntax`)},
 		{"missing-right", ":*", "", fmt.Errorf(`bad syntax`)},
@@ -338,8 +341,7 @@ func TestParseRules(t *testing.T) {
 				gotLogs = append(gotLogs, log.Message)
 			}
 
-			expectedLogs := strings.Split(tc.expectedLogs, "")
-			require.Equal(t, expectedLogs, gotLogs)
+			require.Equal(t, tc.expectedLogs, strings.Join(gotLogs, ""))
 		})
 	}
 }
