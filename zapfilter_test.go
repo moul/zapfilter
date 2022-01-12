@@ -436,6 +436,37 @@ func ExampleCheckAnyLevel() {
 	// true
 }
 
+func ExampleCheckLevel() {
+	c := zap.NewExample().Core()
+	logger := zap.New(zapfilter.NewFilteringCore(c, zapfilter.MustParseRules("debug:*.* info:demo*")))
+
+	fmt.Println(zapfilter.CheckLevel(logger, zap.DebugLevel))
+	fmt.Println(zapfilter.CheckLevel(logger.Named("demo"), zap.DebugLevel))
+	fmt.Println(zapfilter.CheckLevel(logger.Named("blahdemo"), zap.DebugLevel))
+	fmt.Println(zapfilter.CheckLevel(logger.Named("demoblah"), zap.DebugLevel))
+	fmt.Println(zapfilter.CheckLevel(logger.Named("blah"), zap.DebugLevel))
+	fmt.Println(zapfilter.CheckLevel(logger.Named("blah.blah"), zap.DebugLevel))
+	fmt.Println(zapfilter.CheckLevel(logger, zap.InfoLevel))
+	fmt.Println(zapfilter.CheckLevel(logger.Named("demo"), zap.InfoLevel))
+	fmt.Println(zapfilter.CheckLevel(logger.Named("blahdemo"), zap.InfoLevel))
+	fmt.Println(zapfilter.CheckLevel(logger.Named("demoblah"), zap.InfoLevel))
+	fmt.Println(zapfilter.CheckLevel(logger.Named("blah"), zap.InfoLevel))
+	fmt.Println(zapfilter.CheckLevel(logger.Named("blah.blah"), zap.InfoLevel))
+	// Output:
+	// false
+	// false
+	// false
+	// false
+	// false
+	// true
+	// false
+	// true
+	// false
+	// true
+	// false
+	// false
+}
+
 func Example_with() {
 	core := zap.NewExample().Core()
 	logger := zap.New(zapfilter.NewFilteringCore(core, zapfilter.ByNamespaces("demo1.*,demo3.*")))
